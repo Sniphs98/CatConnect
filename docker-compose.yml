@@ -1,0 +1,16 @@
+services:
+  catconnect:
+    image: ghcr.io/sniphs98/catconnect-server:latest
+    # build: .   # or build it yourself from this repository
+    container_name: catconnect
+    restart: unless-stopped
+    # Host networking gives the best chance of direct (fast) connections and
+    # lets CatConnect reach game servers on 127.0.0.1 and your LAN.
+    network_mode: host
+    volumes:
+      - ./catconnect-data:/data
+    environment:
+      # Admin UI on http://<this-machine>:8080
+      CATCONNECT_LISTEN: ":8080"
+      # Set a password, or read the generated one from the logs / catconnect-data/admin-password
+      # CATCONNECT_PASSWORD: "change-me"

@@ -1,0 +1,5 @@
+.git
+catconnect-data
+bin
+client/frontend/node_modules
+client/bin
