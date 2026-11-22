@@ -202,6 +202,15 @@ func (s *server) startLocked(ctx context.Context) error {
 	sctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	id, err := h.Start(sctx)
+	if err != nil && s.identity.RegionID != 0 {
+		// The relay region the link was made with is gone. Start anyway with
+		// the nearest one; the link changes, which beats being offline.
+		h.Close()
+		log.Printf("relay region %d unavailable (%v); picking a new one. The share link changes", s.identity.RegionID, err)
+		s.identity.RegionID = 0
+		h = host.New(host.Options{Identity: s.identity, DERPMapURL: s.derpURL, Logf: log.Printf})
+		id, err = h.Start(sctx)
+	}
 	if err != nil {
 		h.Close()
 		return err

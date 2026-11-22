@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"io"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strconv"
 	"sync/atomic"
@@ -226,15 +229,27 @@ func TestForwarding(t *testing.T) {
 }
 
 // TestStableLink checks that a host restarted with the same identity keeps
-// its link.
+// its link. Like a real server it picks its relay from a DERP map, whose
+// region IDs the link itself doesn't carry.
 func TestStableLink(t *testing.T) {
 	dm := integration.RunDERPAndSTUN(t, logger.Discard, "127.0.0.1")
+	dm.Regions[900] = dm.Regions[1]
+	dm.Regions[900].RegionID = 900
+	for _, n := range dm.Regions[900].Nodes {
+		n.RegionID = 900
+	}
+	delete(dm.Regions, 1)
+	mapSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(dm)
+	}))
+	defer mapSrv.Close()
+
 	id := host.NewIdentity()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	var links []string
 	for range 2 {
-		h := host.New(host.Options{Identity: id, Region: dm.Regions[1]})
+		h := host.New(host.Options{Identity: id, DERPMapURL: mapSrv.URL})
 		var err error
 		if id, err = h.Start(ctx); err != nil {
 			t.Fatal(err)
@@ -242,7 +257,74 @@ func TestStableLink(t *testing.T) {
 		links = append(links, h.Link())
 		h.Close()
 	}
+	if id.RegionID != 900 {
+		t.Fatalf("stored region = %d, want 900", id.RegionID)
+	}
 	if links[0] != links[1] {
 		t.Fatalf("link changed across restarts:\n%s\n%s", links[0], links[1])
 	}
+}
+
+// TestHostRestart restarts the host (same identity, same link) while a
+// guest is connected; the guest must find its way back on its own.
+func TestHostRestart(t *testing.T) {
+	dm := integration.RunDERPAndSTUN(t, logger.Discard, "127.0.0.1")
+	port := freePort(t)
+	ps := strconv.Itoa(int(port))
+	game, err := net.Listen("tcp", "127.0.0.2:"+ps)
+	if err != nil {
+		t.Skipf("127.0.0.2 not usable here: %v", err)
+	}
+	defer game.Close()
+	go func() {
+		for {
+			c, err := game.Accept()
+			if err != nil {
+				return
+			}
+			go func() { defer c.Close(); io.Copy(c, c) }()
+		}
+	}()
+	svc := []host.Service{{Service: proto.Service{ID: "g", Name: "Game", TCP: []string{ps}}, Host: "127.0.0.2", Enabled: true}}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	id := host.NewIdentity()
+	start := func() *host.Host {
+		h := host.New(host.Options{Identity: id, Region: dm.Regions[1]})
+		if _, err := h.Start(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if err := h.SetConfig("Lab", svc); err != nil {
+			t.Fatal(err)
+		}
+		return h
+	}
+	h := start()
+	g, err := guest.New(guest.Options{Link: h.Link(), Name: "Sam", Key: key.NewNode(), BindAddrs: []string{"127.0.0.1"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	go g.Run()
+	defer g.Close()
+
+	echo := func() bool {
+		c, err := net.DialTimeout("tcp", "127.0.0.1:"+ps, 2*time.Second)
+		if err != nil {
+			return false
+		}
+		defer c.Close()
+		c.SetDeadline(time.Now().Add(3 * time.Second))
+		c.Write([]byte("ping"))
+		buf := make([]byte, 4)
+		_, err = io.ReadFull(c, buf)
+		return err == nil && string(buf) == "ping"
+	}
+	waitFor(t, "first connection", 30*time.Second, func() bool { return g.Status().State == "connected" && echo() })
+
+	h.Close()
+	waitFor(t, "guest notices restart", 3*proto.KeepAlive+10*time.Second, func() bool { return g.Status().State != "connected" })
+	h = start()
+	defer h.Close()
+	waitFor(t, "reconnect after host restart", 90*time.Second, func() bool { return g.Status().State == "connected" && echo() })
 }

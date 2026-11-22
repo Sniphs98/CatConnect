@@ -118,14 +118,46 @@ func (h *Host) Start(ctx context.Context) (Identity, error) {
 	h.startedAt = time.Now()
 	h.mu.Unlock()
 	id := h.opts.Identity
-	if ci, err := tailcat.ParseAddr(h.srv.TailcatAddr()); err == nil {
-		if ci.RegionID != 0 {
-			id.RegionID = int(ci.RegionID)
-		} else if len(ci.Region) == 1 && h.opts.Region == nil {
-			id.RegionID = int(ci.Region[0].RegionID)
-		}
+	if h.opts.Region == nil && id.RegionID == 0 {
+		id.RegionID = h.pickedRegion(ctx)
 	}
 	return id, nil
+}
+
+// pickedRegion finds the DERP map ID of the region the server chose, so a
+// restart can use the same region and keep the link. Addresses embed the
+// region's details but not its ID, so it is matched by relay host name.
+func (h *Host) pickedRegion(ctx context.Context) int {
+	ci, err := tailcat.ParseAddr(h.srv.TailcatAddr())
+	if err != nil {
+		return 0
+	}
+	if ci.RegionID > 0 {
+		return int(ci.RegionID)
+	}
+	if len(ci.Region) != 1 {
+		return 0
+	}
+	var opts []any
+	if h.opts.DERPMapURL != "" {
+		opts = append(opts, tailcat.DERPMapURL(h.opts.DERPMapURL))
+	}
+	dm, err := tailcat.FetchDERPMap(ctx, opts...)
+	if err != nil {
+		return 0
+	}
+	hosts := map[string]bool{}
+	for _, n := range ci.Region[0].Nodes {
+		hosts[n.HostName] = true
+	}
+	for id, r := range dm.Regions {
+		for _, n := range r.Nodes {
+			if hosts[n.HostName] {
+				return int(id)
+			}
+		}
+	}
+	return 0
 }
 
 // Close shuts the host down.

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=CatConnect
+Comment=Join your friends' game servers, powered by tailcat
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/catconnect %u
+Terminal=false
+Type=Application
+Icon=catconnect
+Categories=Utility;
+StartupWMClass=catconnect
+
+MimeType=x-scheme-handler/catconnect; 

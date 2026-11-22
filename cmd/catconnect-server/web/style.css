@@ -37,7 +37,8 @@ code, .mono { font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, mono
 
 .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
 .brand { display: flex; align-items: center; gap: 12px; }
-.logo { width: 38px; height: 38px; border-radius: 10px; background: #fff; display: grid; place-items: center; }
+.logo { width: 38px; height: 38px; display: grid; place-items: center; }
+.logo img { width: 38px; height: 38px; }
 .brand-name { font-weight: 700; font-size: 17px; letter-spacing: -0.01em; }
 .brand-sub { color: var(--text-3); font-size: 12.5px; }
 

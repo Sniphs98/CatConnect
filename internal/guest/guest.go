@@ -81,12 +81,34 @@ func New(opts Options) (*Session, error) {
 	return &Session{
 		opts:      opts,
 		addr:      addr,
-		client:    &tailcat.Client{Server: addr, Key: opts.Key, DERPMapURL: opts.DERPMapURL, Logf: logger.Discard},
+		client:    newClient(addr, opts),
 		ctx:       ctx,
 		cancel:    cancel,
 		state:     "connecting",
 		listeners: map[string]*portListener{},
 	}, nil
+}
+
+func newClient(addr tailcat.Addr, opts Options) *tailcat.Client {
+	return &tailcat.Client{Server: addr, Key: opts.Key, DERPMapURL: opts.DERPMapURL, Logf: logger.Discard}
+}
+
+// tc returns the current tunnel client.
+func (s *Session) tc() *tailcat.Client {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.client
+}
+
+// renewClient replaces the tunnel client. A tailcat client announces itself
+// to the server only once, so after the server restarts (same link, fresh
+// process) only a new client gets through again.
+func (s *Session) renewClient() {
+	s.mu.Lock()
+	old := s.client
+	s.client = newClient(s.addr, s.opts)
+	s.mu.Unlock()
+	old.Close()
 }
 
 // Run connects and keeps the session alive until Close. It reconnects the
@@ -117,6 +139,7 @@ func (s *Session) Run() {
 		case <-time.After(backoff):
 		}
 		backoff = min(backoff*2, 30*time.Second)
+		s.renewClient()
 	}
 }
 
@@ -129,8 +152,9 @@ func (s *Session) Close() {
 		l.close()
 		delete(s.listeners, k)
 	}
+	c := s.client
 	s.mu.Unlock()
-	s.client.Close()
+	c.Close()
 	s.changed()
 }
 
@@ -142,7 +166,7 @@ func (s *Session) changed() {
 
 func (s *Session) controlOnce() error {
 	ctx, cancel := context.WithTimeout(s.ctx, 45*time.Second)
-	c, err := s.client.DialTCPPort(ctx, proto.ControlPort)
+	c, err := s.tc().DialTCPPort(ctx, proto.ControlPort)
 	cancel()
 	if err != nil {
 		return errors.New("can't reach the server. It may be offline, or the link is outdated")
@@ -275,7 +299,7 @@ func (s *Session) listenTCP(l *portListener, hp string) error {
 			go func() {
 				defer c.Close()
 				ctx, cancel := context.WithTimeout(s.ctx, 30*time.Second)
-				tc, err := s.client.DialTCPPort(ctx, l.port)
+				tc, err := s.tc().DialTCPPort(ctx, l.port)
 				cancel()
 				if err != nil {
 					s.opts.Logf("dial TCP %d: %v", l.port, err)
@@ -361,7 +385,7 @@ func (s *Session) listenUDP(l *portListener, hp string) error {
 			mu.Unlock()
 			if !ok {
 				ctx, cancel := context.WithTimeout(s.ctx, 30*time.Second)
-				fc, err := s.client.DialUDPPort(ctx, l.port)
+				fc, err := s.tc().DialUDPPort(ctx, l.port)
 				cancel()
 				if err != nil {
 					s.opts.Logf("dial UDP %d: %v", l.port, err)
@@ -404,7 +428,7 @@ func (s *Session) pingLoop() {
 	for s.ctx.Err() == nil {
 		ctx, cancel := context.WithTimeout(s.ctx, 3*time.Second)
 		start := time.Now()
-		r, err := s.client.DiscoPing(ctx)
+		r, err := s.tc().DiscoPing(ctx)
 		cancel()
 		if s.ctx.Err() != nil {
 			return

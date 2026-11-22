@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CatConnect</title>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="bar" style="--wails-draggable: drag">
+    <div class="brand">
+      <div class="logo cc" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="18" height="18"><path d="M6.5 6 11.5 11h9l5-5v13.5a8 8 0 0 1-8 8h-3a8 8 0 0 1-8-8Z" fill="#fff"/><circle cx="12.6" cy="18" r="1.6" fill="#000"/><circle cx="19.4" cy="18" r="1.6" fill="#000"/></svg>
+      </div>
+      <div class="brand-name">CatConnect</div>
+    </div>
+    <div class="bar-actions" style="--wails-draggable: no-drag">
+      <button class="icon-btn" id="open-settings" title="Settings"><svg class="i"><use href="#i-settings"/></svg></button>
+      <button class="icon-btn" id="hide-window" title="Hide to tray (Esc)"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+  </header>
+
+  <main class="content">
+    <!-- Home -->
+    <section class="view" data-view="home">
+      <form class="receive" id="join-form" autocomplete="off">
+        <svg class="i muted"><use href="#i-link"/></svg>
+        <input id="link-input" placeholder="Paste a server link …" spellcheck="false"/>
+        <button class="btn primary small" type="submit">Join</button>
+      </form>
+
+      <div class="scroll" id="home"></div>
+    </section>
+
+    <!-- Settings -->
+    <section class="view" data-view="settings">
+      <div class="list-head first"><h3>Settings</h3><button class="link-btn" id="close-settings">Done</button></div>
+      <div class="scroll">
+        <div class="panel">
+          <div class="row stacked">
+            <div class="row-title">Your name</div>
+            <div class="row-sub">Server owners see this in their player list.</div>
+            <form class="row-actions" id="name-form">
+              <input class="text" id="player-name" maxlength="40" spellcheck="false"/>
+              <button class="btn primary small" type="submit">Save</button>
+            </form>
+          </div>
+          <label class="row toggle-row">
+            <div class="row-main">
+              <div class="row-title">Reconnect on start</div>
+              <div class="row-sub">Join the last server again when CatConnect starts.</div>
+            </div>
+            <span class="toggle"><input type="checkbox" id="auto-connect"/><span class="track"><span class="thumb"></span></span></span>
+          </label>
+          <label class="row toggle-row">
+            <div class="row-main">
+              <div class="row-title">Start with my computer</div>
+              <div class="row-sub">CatConnect waits quietly in the tray.</div>
+            </div>
+            <span class="toggle"><input type="checkbox" id="autostart"/><span class="track"><span class="thumb"></span></span></span>
+          </label>
+        </div>
+
+        <div class="panel">
+          <div class="row stacked">
+            <div class="row-title">How it works</div>
+            <div class="row-sub">CatConnect opens the server's game ports on this computer. In the game, connect to <span class="mono">localhost</span> and the port shown. Traffic is end-to-end encrypted with WireGuard.</div>
+          </div>
+        </div>
+
+        <button class="btn danger small quit" id="quit"><svg class="i sm"><use href="#i-power"/></svg>Quit CatConnect</button>
+        <p class="about">CatConnect 0.1.0 · powered by <span class="mono">tailcat</span> · not affiliated with Tailscale Inc.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6L13 3Z"/></symbol>
+    <symbol id="i-relay" viewBox="0 0 24 24"><path d="M4 12h4m8 0h4"/><circle cx="12" cy="12" r="3.5"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="7" rx="2"/><rect x="4" y="13" width="16" height="7" rx="2"/><path d="M8 7.5h.01M8 16.5h.01"/></symbol>
+    <symbol id="i-game" viewBox="0 0 24 24"><path d="M7 9v4M5 11h4"/><path d="M15 11h.01M18 13h.01"/><path d="M6.5 6h11A4.5 4.5 0 0 1 22 10.5v3a3.5 3.5 0 0 1-6.3 2.1L14.5 14h-5l-1.2 1.6A3.5 3.5 0 0 1 2 13.5v-3A4.5 4.5 0 0 1 6.5 6Z"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h10m4 0h2M4 17h2m4 0h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></symbol>
+    <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 7a8 8 0 1 0 11.4 0"/></symbol>
+  </defs>
+</svg>
+
+<script src="./src/main.js" type="module"></script>
+</body>
+</html>
