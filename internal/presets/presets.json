@@ -1,0 +1,86 @@
+[
+  {
+    "id": "minecraft-java",
+    "name": "Minecraft: Java Edition",
+    "tcp": ["25565"],
+    "udp": [],
+    "join": "Multiplayer → Direct Connection → {addr}"
+  },
+  {
+    "id": "minecraft-bedrock",
+    "name": "Minecraft: Bedrock Edition",
+    "tcp": [],
+    "udp": ["19132"],
+    "join": "Play → Servers → Add Server → address localhost, port {port}"
+  },
+  {
+    "id": "satisfactory",
+    "name": "Satisfactory",
+    "tcp": ["7777", "8888"],
+    "udp": ["7777"],
+    "join": "Server Manager → Add Server → address localhost, port 7777"
+  },
+  {
+    "id": "valheim",
+    "name": "Valheim",
+    "tcp": [],
+    "udp": ["2456-2457"],
+    "join": "Join Game → Add Server → {addr}"
+  },
+  {
+    "id": "terraria",
+    "name": "Terraria",
+    "tcp": ["7777"],
+    "udp": [],
+    "join": "Multiplayer → Join via IP → localhost, port {port}"
+  },
+  {
+    "id": "factorio",
+    "name": "Factorio",
+    "tcp": [],
+    "udp": ["34197"],
+    "join": "Multiplayer → Connect to address → {addr}"
+  },
+  {
+    "id": "palworld",
+    "name": "Palworld",
+    "tcp": [],
+    "udp": ["8211"],
+    "join": "Join Multiplayer Game → enter {addr} at the bottom"
+  },
+  {
+    "id": "project-zomboid",
+    "name": "Project Zomboid",
+    "tcp": [],
+    "udp": ["16261-16262"],
+    "join": "Join → add server with IP localhost, port {port}"
+  },
+  {
+    "id": "enshrouded",
+    "name": "Enshrouded",
+    "tcp": [],
+    "udp": ["15636-15637"],
+    "join": "Play → Join → Direct connect → {addr}"
+  },
+  {
+    "id": "7-days-to-die",
+    "name": "7 Days to Die",
+    "tcp": ["26900"],
+    "udp": ["26900-26903"],
+    "join": "Join a Game → Connect To IP → localhost, port {port}"
+  },
+  {
+    "id": "source",
+    "name": "Counter-Strike 2 / Source games",
+    "tcp": ["27015"],
+    "udp": ["27015"],
+    "join": "Console: connect {addr}"
+  },
+  {
+    "id": "rust",
+    "name": "Rust",
+    "tcp": [],
+    "udp": ["28015"],
+    "join": "Console (F1): client.connect {addr}"
+  }
+]
