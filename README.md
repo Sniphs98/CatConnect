@@ -177,11 +177,14 @@ tailcat describes itself as experimental; see its
 
 ## Releasing
 
-On GitHub: **Actions → build → Run workflow**, enter a version such as
-`v0.2.0` and run it. GitHub Actions builds everything, publishes the release
-with all downloads and tags the Docker image as `:v0.2.0` and `:stable`.
-Pushing a `v*` tag, or publishing a release with a new tag on the Releases
-page, does the same.
+On GitHub: **Actions → build → Run workflow** (on `main`). The version counts
+up from the newest `vX.Y.Z` tag on its own: **patch** (the default) turns
+v0.1.3 into v0.1.4, **minor** into v0.2.0, **major** into v1.0.0; the first
+release is v0.1.0. The workflow builds everything, stamps the version into
+the apps, installer and server, tags the commit, publishes the release with
+all downloads, and tags the Docker image as `:<version>` and `:stable`.
+
+Pushing a `vX.Y.Z` tag yourself releases exactly that version.
 
 ## Development
 

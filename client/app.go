@@ -61,6 +61,7 @@ type State struct {
 	Servers  []SavedServer `json:"servers"`
 	Session  *guest.Status `json:"session"`
 	Platform string        `json:"platform"`
+	Version  string        `json:"version"`
 }
 
 func NewApp() *App {
@@ -125,6 +126,7 @@ func (a *App) GetState() State {
 		Settings: Settings{PlayerName: a.cfg.PlayerName, AutoConnect: a.cfg.AutoConnect},
 		Servers:  append([]SavedServer{}, a.cfg.Servers...),
 		Platform: goruntime.GOOS,
+		Version:  appVersion,
 	}
 	if a.session != nil {
 		s := a.session.Status()

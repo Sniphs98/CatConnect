@@ -109,6 +109,7 @@ function renderSession(s) {
 function render(st) {
   state = st;
   document.body.classList.add(`platform-${st.platform}`);
+  $('#app-version').textContent = st.version;
   const s = st.session;
   let html = '';
   if (s) html += renderSession(s);
