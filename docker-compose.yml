@@ -1,6 +1,6 @@
 services:
   catconnect:
-    image: ghcr.io/sniphs98/catconnect-server:latest
+    image: ghcr.io/sniphs98/catconnect-server:stable   # latest release; :latest follows main
     # build: .   # or build it yourself from this repository
     container_name: catconnect
     restart: unless-stopped

@@ -14,6 +14,21 @@ CatConnect has two parts:
 | **CatConnect Server** | your homelab, NAS or any always-on machine (Docker or a single binary) | forwards the ports of the game servers you choose; configured in the browser |
 | **CatConnect** (app) | your friends' computers (Windows, macOS, Linux) | sits in the tray; paste the link and the games appear on `localhost` |
 
+## Download
+
+Everything is on the **[Releases page](../../releases/latest)**:
+
+| | File |
+|---|---|
+| App for players, Windows | `CatConnect-Setup-windows-x64.exe` (installer) or `CatConnect-portable-windows-x64.exe` |
+| App for players, macOS | `CatConnect-macOS.zip` (Intel and Apple Silicon) |
+| App for players, Linux | `CatConnect-linux-x64` (needs GTK 4 and WebKitGTK 6.0) |
+| Server (homelab) | Docker image `ghcr.io/sniphs98/catconnect-server`, or `catconnect-server-linux-x64` / `-linux-arm64` / `-windows-x64.exe` / `-darwin-arm64` |
+
+The apps aren't code-signed. On Windows, click *More info → Run anyway*. On
+macOS, right-click the app and choose *Open* (on macOS 15 and later: *System
+Settings → Privacy & Security → Open Anyway*).
+
 ## How it works
 
 1. **Run the server** next to your game servers and open its admin page.
@@ -42,7 +57,7 @@ tells clients to come back on a second port (8888).
 # docker-compose.yml
 services:
   catconnect:
-    image: ghcr.io/sniphs98/catconnect-server:latest
+    image: ghcr.io/sniphs98/catconnect-server:stable   # latest release; :latest follows main
     container_name: catconnect
     restart: unless-stopped
     network_mode: host          # best for direct connections and reaching your LAN
@@ -67,12 +82,12 @@ password (also saved in `catconnect-data/admin-password`). Open
 
 ### Single binary
 
-Download `catconnect-server` for your platform from the latest
-[build](../../actions/workflows/build.yml) (Linux amd64/arm64, Windows,
-macOS) and run it:
+Download `catconnect-server` for your platform from the
+[Releases page](../../releases/latest) (Linux x64/arm64, Windows, macOS) and
+run it:
 
 ```bash
-./catconnect-server --data ./catconnect-data
+./catconnect-server-linux-x64 --data ./catconnect-data
 ```
 
 | Flag | Environment | Default |
@@ -159,6 +174,20 @@ Minecraft server), the app says so for that game.
 
 tailcat describes itself as experimental; see its
 [SECURITY.md](https://github.com/tailscale/tailcat/blob/main/SECURITY.md).
+
+## Releasing
+
+Push a version tag; GitHub Actions builds everything and publishes the
+release with all downloads, and the Docker image as `:<version>` and
+`:stable`:
+
+```bash
+git tag v0.2.0
+```
+
+```bash
+git push origin v0.2.0
+```
 
 ## Development
 

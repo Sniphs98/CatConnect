@@ -8,6 +8,8 @@ on:
 env:
   WAILS_VERSION: v3.1.0
   IMAGE: ghcr.io/sniphs98/catconnect-server
+  # A tag push (v1.2.3) builds that version and publishes a GitHub release.
+  VERSION: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
 
 jobs:
   test:
@@ -40,7 +42,7 @@ jobs:
           go-version-file: go.mod
       - run: |
           CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
-            go build -trimpath -ldflags="-s -w -X main.version=${GITHUB_SHA::7}" \
+            go build -trimpath -ldflags="-s -w -X main.version=${VERSION::12}" \
             -o bin/catconnect-server-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} ./cmd/catconnect-server
       - uses: actions/upload-artifact@v4
         with:
@@ -50,6 +52,8 @@ jobs:
   docker:
     needs: test
     runs-on: ubuntu-24.04
+    env:
+      PUBLISH: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref_type == 'tag') }}
     permissions:
       contents: read
       packages: write
@@ -57,7 +61,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
-      - if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      - if: env.PUBLISH == 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -67,11 +71,12 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          build-args: VERSION=${{ github.sha }}
-          push: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+          build-args: VERSION=${{ env.VERSION }}
+          push: ${{ env.PUBLISH == 'true' }}
+          # main -> :latest and :<sha>; a release tag -> :<tag> and :stable
           tags: |
-            ${{ env.IMAGE }}:latest
-            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ github.ref_type == 'tag' && format('{0}:{1}', env.IMAGE, github.ref_name) || format('{0}:latest', env.IMAGE) }}
+            ${{ github.ref_type == 'tag' && format('{0}:stable', env.IMAGE) || format('{0}:{1}', env.IMAGE, github.sha) }}
 
   # The player app. Windows is cross-compiled from Linux and packaged with NSIS.
   client-windows:
@@ -142,3 +147,51 @@ jobs:
         with:
           name: catconnect-Linux
           path: client/bin/catconnect
+
+  # On a version tag, collect everything into a GitHub release.
+  release:
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    needs: [server, docker, client-windows, client-macos, client-linux]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Collect release files
+        run: |
+          mkdir dist
+          a=artifacts
+          cp "$a/catconnect-Windows/catconnect-amd64-installer.exe" dist/CatConnect-Setup-windows-x64.exe
+          cp "$a/catconnect-Windows/catconnect.exe"                 dist/CatConnect-portable-windows-x64.exe
+          cp "$a/catconnect-macOS/CatConnect-macOS.zip"             dist/CatConnect-macOS.zip
+          cp "$a/catconnect-Linux/catconnect"                       dist/CatConnect-linux-x64
+          for f in "$a"/catconnect-server-*/catconnect-server-*; do
+            cp "$f" dist/"$(basename "$f" | sed 's/amd64/x64/')"
+          done
+          chmod +x dist/CatConnect-linux-x64 dist/catconnect-server-linux-* dist/catconnect-server-darwin-*
+          (cd dist && sha256sum * > SHA256SUMS.txt)
+          ls -la dist
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<EOF
+          ## Downloads
+
+          **For players (the CatConnect app)**
+          - Windows: \`CatConnect-Setup-windows-x64.exe\` (installer, recommended) or \`CatConnect-portable-windows-x64.exe\`
+          - macOS: \`CatConnect-macOS.zip\` (Intel and Apple Silicon)
+          - Linux: \`CatConnect-linux-x64\` (needs GTK 4 and WebKitGTK 6.0)
+
+          **For the server owner (CatConnect Server)**
+          - Docker: \`ghcr.io/sniphs98/catconnect-server:${GITHUB_REF_NAME}\` (see the README)
+          - Or a single binary: \`catconnect-server-linux-x64\`, \`-linux-arm64\` (e.g. Raspberry Pi), \`-windows-x64.exe\`, \`-darwin-arm64\`
+
+          The apps aren't code-signed. Windows: *More info → Run anyway*. macOS: right-click the app → *Open*
+          (on macOS 15 and later: *System Settings → Privacy & Security → Open Anyway*).
+          EOF
+          gh release create "$GITHUB_REF_NAME" dist/* --title "CatConnect $GITHUB_REF_NAME" --notes-file notes.md --generate-notes --verify-tag
+
