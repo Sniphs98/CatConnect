@@ -4,12 +4,18 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Publish a release with this version, e.g. v0.1.0 (leave empty to only build)"
+        required: false
+        default: ""
 
 env:
   WAILS_VERSION: v3.1.0
   IMAGE: ghcr.io/sniphs98/catconnect-server
-  # A tag push (v1.2.3) builds that version and publishes a GitHub release.
-  VERSION: ${{ github.ref_type == 'tag' && github.ref_name || github.sha }}
+  # A release is made by "Run workflow" with a version, or by pushing a v* tag.
+  RELEASE: ${{ (github.event_name == 'workflow_dispatch' && inputs.version != '') || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v')) }}
+  VERSION: ${{ (github.event_name == 'workflow_dispatch' && inputs.version) || (github.ref_type == 'tag' && github.ref_name) || github.sha }}
 
 jobs:
   test:
@@ -53,7 +59,8 @@ jobs:
     needs: test
     runs-on: ubuntu-24.04
     env:
-      PUBLISH: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref_type == 'tag') }}
+      # (job-level env can't read the workflow env, hence the repeated condition)
+      PUBLISH: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.version != '') || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v')) }}
     permissions:
       contents: read
       packages: write
@@ -73,10 +80,10 @@ jobs:
           platforms: linux/amd64,linux/arm64
           build-args: VERSION=${{ env.VERSION }}
           push: ${{ env.PUBLISH == 'true' }}
-          # main -> :latest and :<sha>; a release tag -> :<tag> and :stable
+          # main -> :latest and :<sha>; a release -> :<version> and :stable
           tags: |
-            ${{ github.ref_type == 'tag' && format('{0}:{1}', env.IMAGE, github.ref_name) || format('{0}:latest', env.IMAGE) }}
-            ${{ github.ref_type == 'tag' && format('{0}:stable', env.IMAGE) || format('{0}:{1}', env.IMAGE, github.sha) }}
+            ${{ env.RELEASE == 'true' && format('{0}:{1}', env.IMAGE, env.VERSION) || format('{0}:latest', env.IMAGE) }}
+            ${{ env.RELEASE == 'true' && format('{0}:stable', env.IMAGE) || format('{0}:{1}', env.IMAGE, github.sha) }}
 
   # The player app. Windows is cross-compiled from Linux and packaged with NSIS.
   client-windows:
@@ -148,9 +155,9 @@ jobs:
           name: catconnect-Linux
           path: client/bin/catconnect
 
-  # On a version tag, collect everything into a GitHub release.
+  # Collect everything into a GitHub release.
   release:
-    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    if: (github.event_name == 'workflow_dispatch' && inputs.version != '') || (github.ref_type == 'tag' && startsWith(github.ref_name, 'v'))
     needs: [server, docker, client-windows, client-macos, client-linux]
     runs-on: ubuntu-24.04
     permissions:
@@ -187,11 +194,17 @@ jobs:
           - Linux: \`CatConnect-linux-x64\` (needs GTK 4 and WebKitGTK 6.0)
 
           **For the server owner (CatConnect Server)**
-          - Docker: \`ghcr.io/sniphs98/catconnect-server:${GITHUB_REF_NAME}\` (see the README)
+          - Docker: \`ghcr.io/sniphs98/catconnect-server:${VERSION}\` (see the README)
           - Or a single binary: \`catconnect-server-linux-x64\`, \`-linux-arm64\` (e.g. Raspberry Pi), \`-windows-x64.exe\`, \`-darwin-arm64\`
 
           The apps aren't code-signed. Windows: *More info → Run anyway*. macOS: right-click the app → *Open*
           (on macOS 15 and later: *System Settings → Privacy & Security → Open Anyway*).
           EOF
-          gh release create "$GITHUB_REF_NAME" dist/* --title "CatConnect $GITHUB_REF_NAME" --notes-file notes.md --generate-notes --verify-tag
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            # Release drafted on GitHub (with its tag): attach the files.
+            gh release upload "$VERSION" dist/* --clobber
+          else
+            # Creates the tag on this commit too.
+            gh release create "$VERSION" dist/* --target "$GITHUB_SHA" --title "CatConnect $VERSION" --notes-file notes.md --generate-notes
+          fi
 
